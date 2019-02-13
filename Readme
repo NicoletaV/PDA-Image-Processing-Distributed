@@ -1,0 +1,33 @@
+VINA NICOLETA, 335CC
+
+	Pentru generarea matricelor-filtru am utilizat functia getFilter, iar in functia
+readInput se citeste inputul in matricea corespunzatoare (color_picture pt P6 sau
+grayscale_picture pt P5), in timp ce writeData scrie matricea in fisierul de iesire.
+	Procesul 0 citeste matricea si face impartirea pe linii pt fiecare proces;
+formeaza vectorii sendcounts, sendcounts2, displs, displs2 folositi la Scatterv
+si Gatherv. Matricea e impartita pe linii, in mod "cat mai egal" proceselor, cu 
+ajutorul vectorilor sendcounts si displs, ce sunt formati astfel incat sa se 
+distribuie fiecarui proces partea corespuzatoare si in plus, linia de desupra primei
+linii si linia de dupa ultima linie din fasia sa, necesare pentru a se putea aplica
+filtrele (deoarece sunt 3x3). Exceptie fac primul si ultimul proces (nu mai primesc
+linia de deasupra si respectiv linia de dedesubt).
+	Toate procesele au nevoie sa cunoasca sendcounts, sendcounts2, displs, displs2,
+P - tipul imaginii, height si width, asadar se face Broadcast pentru aceste elemente.
+	In rankul 0 se copiaza matricea de input in bufferul "buf" ce se va trimite in
+Scatterv. Exista un for pentru filtre; se incepe aplicarea urmatorului filtru abia dupa
+ce s-a terminat aplicarea anteriorului si a avut loc reasamblarea bufferului transmis.
+	In Scatterv se trimite spre impartire bufferul buf, in functie de sendcounts
+si displs si fiecare proces	isi primeste partea in recvbuf. Apoi fiecare proces aplica
+filtrul pe bucata lui, avand grija sa copieze elementele care trebuie sa ramana 
+neschimbate (prima si ultima linie din input si marginile stanga si dreapta).
+	In Gatherv se colecteaza toate partile prelucrate de procese (in vectorul recvbuf2)
+in procesul 0, in bufferul "buffer", dar fara liniile in plus, lucru controlat de
+sendcounts2 si displs2.
+	Apoi, in rank 0, la sfarsitul aplicarii unui filtru, se copiaza rezultatul in
+buf, pentru a se putea continua si aplica urmatorul filtru. Dupa ce se incheie aplicarea
+tuturor, in procesul 0 se copiaza din vector inapoi in matrice si aceasta se scrie
+in fisierul de iesire.
+	In cazul in care insa exista un singur proces, matricea nu se mai imparte, ci se
+aplica direct filtrele pe ea prin intermediul unei matrice auxiliare si la final, se
+scrie in fisier.
+
